@@ -165,6 +165,9 @@ function renderLogin() {
 
       const data = await response.json();
       if (response.ok) {
+        localStorage.setItem("token", result.token);
+        localStorage.setItem("username", username);
+        alert("Login successful");
         token = data.token;
         currentUser = data;
         navigateTo("dashboard");
@@ -173,6 +176,12 @@ function renderLogin() {
       }
     } catch (error) {
       alert("Server error during login.");
+    }
+  };
+  window.onload = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      loadDashboard();
     }
   };
 
@@ -247,35 +256,38 @@ async function renderDeposit() {
   if (!amount || isNaN(amount) || amount <= 0) {
     alert("Invalid amount.");
     return;
-  }
+  } else {
+    try {
+      const response = await fetch(`${API_BASE}/deposit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: currentUser?.user?.username,
+          amount,
+          pin,
+        }),
+      });
 
-  try {
-    const response = await fetch(`${API_BASE}/deposit`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        username: currentUser?.user?.username,
-        amount,
-        pin,
-      }),
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      alert(`Deposit successful! New balance: ${data.balance}`);
-    } else {
-      alert(data.message || "Deposit failed.");
+      const data = await response.json();
+      if (response.ok) {
+        alert(`Deposit successful! New balance: ${data.balance}`);
+        updateBalance(data.balance);
+      } else {
+        alert(data.message || "Deposit failed.");
+      }
+      navigateTo("dashboard");
+    } catch (error) {
+      alert("Server error during deposit.");
     }
-    navigateTo("dashboard");
-  } catch (error) {
-    alert("Server error during deposit.");
   }
+  const updateBalance = (balance) => {
+    document.getElementById("balance").textContent = `Balance: ${balance}`;
+  };
 }
 
-// Implement similar API calls for withdraw, transfer, and statement
 async function renderWithdraw() {
   const amount = prompt("Enter amount to withdraw:");
   const pin = prompt("Enter you pin");
@@ -317,6 +329,9 @@ async function renderTransfer() {
   if (!recipientAccountNumber || !amount || isNaN(amount) || amount <= 0) {
     alert("Invalid recipient or amount.");
     return;
+  } else if (sender === receiver) {
+    alert("Cannot transfer money to your own account");
+    return;
   }
 
   try {
@@ -357,6 +372,11 @@ async function renderStatement() {
 
     const data = await response.json();
     if (response.ok) {
+      const back = createElement(
+        "button",
+        "bg-blue-500 text-white p-2 rounded w-full",
+        "Back to Dashboard"
+      );
       const container = createElement("div", "p-6 bg-gray-100 min-h-screen");
       const title = createElement(
         "h1",
@@ -398,7 +418,7 @@ async function renderStatement() {
       }
 
       container.append(title, transactionList);
-      app.append(container);
+      app.append(container, back);
     } else {
       alert(data.message || "Failed to fetch statement.");
       navigateTo("dashboard");
@@ -407,5 +427,9 @@ async function renderStatement() {
     alert("Server error while fetching statement.");
   }
 }
+const loadDashboard = () => {
+  document.getElementById("dashboard").style.display = "block";
+  document.getElementById("statements").style.display = "none";
+};
 
 navigateTo("login");
