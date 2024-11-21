@@ -169,7 +169,6 @@ function renderLogin() {
         currentUser = data;
         localStorage.setItem("token", token);
         localStorage.setItem("user", currentUser);
-        alert("Login successful");
         navigateTo("dashboard");
       } else {
         alert(data.message || "Login failed.");
@@ -185,7 +184,25 @@ function renderLogin() {
   app.append(container);
 }
 
-function renderDashboard() {
+async function renderDashboard() {
+  try {
+    const response = await fetch(`${API_BASE}/details`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      localStorage.setItem("userData", data);
+    }
+    navigateTo("dashboard");
+  } catch (error) {
+    alert("Server error during deposit.");
+    console.log(error.message);
+  }
   const container = createElement("div", "p-6 bg-gray-100 min-h-screen");
   const title = createElement(
     "h1",
@@ -269,6 +286,7 @@ async function renderDeposit() {
       const data = await response.json();
       if (response.ok) {
         alert(`Deposit successful! New balance: ${data.balance}`);
+        currentUser.user.balance += Number(amount);
       }
       navigateTo("dashboard");
     } catch (error) {
@@ -303,6 +321,7 @@ async function renderWithdraw() {
     const data = await response.json();
     if (response.ok) {
       alert(`Withdrawal successful! New balance: ${data.balance}`);
+      currentUser.user.balance -= Number(amount);
     } else {
       alert(data.message || "Withdrawal failed.");
     }
@@ -342,6 +361,7 @@ async function renderTransfer() {
     const data = await response.json();
     if (response.ok) {
       alert(`Transfer successful! New balance: ${data.senderBalance}`);
+      currentUser.user.balance -= Number(amount);
     } else {
       alert(data.message || "Transfer failed.");
     }
@@ -363,6 +383,14 @@ async function renderStatement() {
     const data = await response.json();
     if (response.ok) {
       const container = createElement("div", "p-6 bg-gray-100 min-h-screen");
+      const button = createElement(
+        "button",
+        "bg-blue-500 px-4 py-2 rounded-lg mt-6 ml-6",
+        "Back to Dashboard"
+      );
+      button.onclick = () => {
+        navigateTo("dashboard");
+      };
       const title = createElement(
         "h1",
         "text-2xl font-bold mb-4",
@@ -403,7 +431,7 @@ async function renderStatement() {
       }
 
       container.append(title, transactionList);
-      app.append(container);
+      app.append(button, container);
     } else {
       alert(data.message || "Failed to fetch statement.");
       navigateTo("dashboard");
