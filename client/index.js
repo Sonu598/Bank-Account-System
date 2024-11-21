@@ -185,24 +185,24 @@ function renderLogin() {
 }
 
 async function renderDashboard() {
-  try {
-    const response = await fetch(`${API_BASE}/details`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  // try {
+  //   const response = await fetch(`${API_BASE}/details`, {
+  //     method: "GET",
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       Authorization: `Bearer ${token}`,
+  //     },
+  //   });
 
-    const data = await response.json();
-    if (response.ok) {
-      localStorage.setItem("userData", data);
-    }
-    navigateTo("dashboard");
-  } catch (error) {
-    alert("Server error during deposit.");
-    console.log(error.message);
-  }
+  //   const data = await response.json();
+  //   if (response.ok) {
+  //     localStorage.setItem("userData", data);
+  //   }
+  //   navigateTo("dashboard");
+  // } catch (error) {
+  //   alert("Server error during deposit.");
+  //   console.log(error.message);
+  // }
   const container = createElement("div", "p-6 bg-gray-100 min-h-screen");
   const title = createElement(
     "h1",
@@ -337,10 +337,6 @@ async function renderTransfer() {
   const amount = prompt("Enter amount to transfer:");
   if (!recipientAccountNumber || !amount || isNaN(amount) || amount <= 0) {
     alert("Invalid recipient or amount.");
-    return;
-  } else if (sender === receiver) {
-    alert("Cannot transfer money to your own account");
-    return;
   }
 
   try {
@@ -351,7 +347,7 @@ async function renderTransfer() {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        senderUsername: currentUser?.user.username,
+        senderUsername: currentUser?.user?.username,
         recipientAccountNumber,
         amount,
         pin,

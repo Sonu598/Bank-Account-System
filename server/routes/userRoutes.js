@@ -173,7 +173,7 @@ router.post("/transfer", authMiddleware, async (req, res) => {
     const recipient = await User.findOne({
       accountNumber: recipientAccountNumber,
     });
-    if (recipientAccountNumber === currentUser.accountNumber) {
+    if (recipientAccountNumber === sender.accountNumber) {
       return res
         .status(400)
         .json({ message: "Cannot transfer to own Account" });
@@ -185,7 +185,7 @@ router.post("/transfer", authMiddleware, async (req, res) => {
     if (sender.isLocked)
       return res.status(403).json({ message: "Sender account is locked" });
 
-    const receiverUser = await User.findOne({ username: receiver });
+    const receiverUser = await User.findOne({ username: recipient.username });
     if (!receiverUser) {
       return res.status(404).json({ message: "Recipient account not found" });
     }
