@@ -171,7 +171,7 @@ function renderLogin() {
         localStorage.setItem("user", currentUser);
         navigateTo("dashboard");
       } else {
-        alert(data.message || "Login failed.");
+        alert(error.message);
       }
     } catch (error) {
       // alert("Server error during login.");
@@ -363,7 +363,7 @@ async function renderTransfer() {
     }
     navigateTo("dashboard");
   } catch (error) {
-    alert("Server error during transfer.");
+    alert(error.message);
   }
 }
 async function renderStatement() {
