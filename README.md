@@ -31,6 +31,8 @@ The **Bank Account System** is a RESTful API that enables users to perform basic
 
 ## **API Endpoints**
 
+### **Swagger Documentation** : https://bank-account-system-server.onrender.com/api-docs
+
 ### **Base URL** : https://bank-account-system-server.onrender.com/user
 
 
