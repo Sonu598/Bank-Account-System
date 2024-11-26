@@ -171,7 +171,7 @@ function renderLogin() {
         localStorage.setItem("user", currentUser);
         navigateTo("dashboard");
       } else {
-        alert(error.message);
+        console.log(response.message);
       }
     } catch (error) {
       // alert("Server error during login.");
@@ -330,41 +330,148 @@ async function renderWithdraw() {
     alert("Server error during withdrawal.");
   }
 }
+function calculateRemainingBalance(amount, variable) {
+  const chargableAmount = amount * variable;
+  document.querySelector(
+    ".charge"
+  ).innerText = `Chargable amount for this transaction will be ${chargableAmount}`;
+}
+function createCustomPrompt(callback) {
+  // Create container div
+  const promptDiv = document.createElement("div");
+  promptDiv.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      z-index: 1000;
+  `;
+
+  // Create overlay
+  const overlay = document.createElement("div");
+  overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+  `;
+
+  // Create input fields
+  const racn = document.createElement("input");
+  racn.placeholder = "Enter Recevier Account Number";
+  racn.style.marginBottom = "10px";
+  racn.style.display = "block";
+  racn.style.width = "200px";
+  racn.style.padding = "5px";
+
+  const amount = document.createElement("input");
+  amount.placeholder = "Enter amount";
+  amount.onchange = function (e) {
+    calculateRemainingBalance(Number(e.target.value), 0.002);
+  };
+  amount.style.marginBottom = "10px";
+  amount.style.display = "block";
+  amount.style.width = "200px";
+  amount.style.padding = "5px";
+
+  const pin = document.createElement("input");
+  pin.placeholder = "Enter pin";
+  pin.style.marginBottom = "10px";
+  pin.style.display = "block";
+  pin.style.width = "200px";
+  pin.style.padding = "5px";
+
+  const charge = document.createElement("p");
+  charge.setAttribute("class", "charge");
+
+  // Create submit button
+  const submitButton = document.createElement("button");
+  submitButton.textContent = "Submit";
+  submitButton.style.cssText = `
+      padding: 5px 15px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+  `;
+
+  // Add event listener for submit
+  submitButton.addEventListener("click", () => {
+    const values = {
+      racn: racn?.value,
+      amount: amount?.value,
+      pin: pin?.value,
+    };
+
+    callback(values);
+    // You can handle the values here as needed
+
+    // Remove the prompt
+    document.body.removeChild(promptDiv);
+    document.body.removeChild(overlay);
+  });
+
+  // Append elements to prompt div
+  promptDiv.appendChild(racn);
+  promptDiv.appendChild(amount);
+  promptDiv.appendChild(charge);
+  promptDiv.appendChild(pin);
+  promptDiv.appendChild(submitButton);
+
+  // Add to document
+  document.body.appendChild(overlay);
+  document.body.appendChild(promptDiv);
+
+  // Focus first input
+  racn.focus();
+}
+
+// Call the function to show the prompt
 
 async function renderTransfer() {
-  const recipientAccountNumber = prompt("Enter recipient's account number:");
-  const pin = prompt("pin");
-  const amount = prompt("Enter amount to transfer:");
-  if (!recipientAccountNumber || !amount || isNaN(amount) || amount <= 0) {
-    alert("Invalid recipient or amount.");
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/transfer`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        senderUsername: currentUser?.user?.username,
-        recipientAccountNumber,
-        amount,
-        pin,
-      }),
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      alert(`Transfer successful! New balance: ${data.senderBalance}`);
-      currentUser.user.balance -= Number(amount);
-    } else {
-      alert(data.message || "Transfer failed.");
+  createCustomPrompt(async (data) => {
+    const recipientAccountNumber = data?.racn;
+    const amount = data?.amount;
+    const pin = data?.pin;
+    if (!recipientAccountNumber || !amount || isNaN(amount) || amount <= 0) {
+      alert("Invalid recipient or amount.");
     }
-    navigateTo("dashboard");
-  } catch (error) {
-    alert(error.message);
-  }
+
+    try {
+      const response = await fetch(`${API_BASE}/transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          senderUsername: currentUser?.user?.username,
+          recipientAccountNumber,
+          amount,
+          pin,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert(`Transfer successful! New balance: ${data.senderBalance}`);
+        currentUser.user.balance -= Number(amount);
+      } else {
+        alert(data.message || "Transfer failed.");
+      }
+      navigateTo("dashboard");
+    } catch (error) {
+      alert(error.message);
+    }
+  });
 }
 async function renderStatement() {
   try {

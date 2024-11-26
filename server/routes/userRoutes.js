@@ -6,6 +6,8 @@ const authMiddleware = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
+const chargePerTransfer = 0.002;
+
 // generate account number
 const generateAccountNumber = () =>
   `BANK-${Math.floor(1000000 + Math.random() * 9000000)}`;
@@ -54,27 +56,36 @@ router.post("/login", async (req, res) => {
     const { username, pin } = req.body;
     const user = await User.findOne({ username });
 
-    if (!user)
-      return res.status(400).json({ message: "Invalid username or PIN" });
+    if (!user) return res.status(400).json({ message: "Invalid username" });
 
-    if (user.isLocked) {
-      const timeDiff = (new Date() - user.lockTime) / (1000 * 60 * 60); // Hours
-      if (timeDiff < 24)
-        return res
-          .status(403)
-          .json({ message: "Account is locked. Try again later." });
-
-      user.isLocked = false; // Unlock account after 24 hours
-      user.failedAttempts = 0;
-      await user.save();
+    if (user.lockTime > Date.now()) {
+      return res.status(403).send("Account is locked");
     }
 
     const isMatch = await bcrypt.compare(pin, user.pin);
-    if (!isMatch) {
+    if (isMatch) {
+      user.failedAttempts = 0;
+      user.lockTime = null;
+      await user.save();
+      const token = jwt.sign(
+        { id: user._id, username: user.username },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: process.env.JWT_EXPIRES_IN,
+        }
+      );
+
+      res.json({
+        message: "Login successful",
+        token,
+        user,
+      });
+    } else {
       user.failedAttempts += 1;
       if (user.failedAttempts >= 3) {
         user.isLocked = true;
-        user.lockTime = new Date();
+        user.lockTime = Date.now() + 24 * 60 * 60 * 1000;
+        await user.save();
         return res.status(403).json({ message: "Account locked for 24 hours" });
       }
       await user.save();
@@ -83,25 +94,8 @@ router.post("/login", async (req, res) => {
         message: `Invalid PIN. ${remainingAttempts} attempts remaining.`,
       });
     }
-
-    user.failedAttempts = 0;
-    await user.save();
-
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: process.env.JWT_EXPIRES_IN,
-      }
-    );
-
-    res.json({
-      message: "Login successful",
-      token,
-      user,
-    });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -173,6 +167,11 @@ router.post("/transfer", authMiddleware, async (req, res) => {
     const recipient = await User.findOne({
       accountNumber: recipientAccountNumber,
     });
+    const bankAccount = await User.findOne({
+      accountNumber: process.env.BANK_ACC_NUMS,
+    });
+    console.log(bankAccount);
+
     if (recipientAccountNumber === sender.accountNumber) {
       return res
         .status(400)
@@ -203,16 +202,19 @@ router.post("/transfer", authMiddleware, async (req, res) => {
     }
 
     // Deduct from sender
-    sender.balance -= amount;
+    const charges = amount * chargePerTransfer;
+    sender.balance -= Number(amount);
+    sender.balance -= Number(charges);
     sender.transactions.push({
       type: "Transfer",
       amount,
+      charges,
       balanceAfterTransaction: sender.balance,
       details: { recipient: recipient.accountNumber },
     });
 
     // Add to recipient
-    recipient.balance += amount;
+    recipient.balance += Number(amount);
     recipient.transactions.push({
       type: "Transfer",
       amount,
@@ -220,9 +222,18 @@ router.post("/transfer", authMiddleware, async (req, res) => {
       details: { sender: sender.accountNumber },
     });
 
+    // Add charges to the bank's Account
+    bankAccount.balance += charges;
+    bankAccount.transactions.push({
+      type: "Charges",
+      amount: charges,
+      balanceAfterTransaction: bankAccount.balance,
+    });
+
     // Save both
     await sender.save();
     await recipient.save();
+    await bankAccount.save();
 
     res.json({ message: "Transfer successful", senderBalance: sender.balance });
   } catch (err) {
